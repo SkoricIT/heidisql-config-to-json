@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
+// Adapted from Code by Chase Woodford
 // Source: http://www.chasewoodford.com/blog/how-to-recover-a-stored-password-from-heidisql/
 function heidiDecode(hex) {
 	let str = '';
@@ -12,29 +13,36 @@ function heidiDecode(hex) {
 
 const raw_data = fs.readFileSync(path.resolve(__dirname, 'export.txt'), { encoding: 'utf-8' });
 const raw_lines = raw_data.split(/[\r\n]+/);
-console.log(raw_lines.length);
 const server_lines = raw_lines.filter(x => x.startsWith('Servers'));
-console.log(server_lines.length);
 
 const servers = {};
-for (const l of server_lines) {
-	const parts = l.split('\\');
-	for (const index of Object.keys(parts)) {
-		const p = parts[index];
+for (const line of server_lines) {
+	const config_path_parts = line.split('\\');
+	for (const index of Object.keys(config_path_parts)) {
+		const p = config_path_parts[index];
+
+		// data payload detection is necessary because of variable config path lenghts
 		if (p.includes('<|||>')) {
 			const data_parts = p.split('<|||>');
-			for(const data_point of ['User', 'Password', 'Host', 'Port']){
 
-
+			// only read interesting parts of the config
+			for (const data_point of ['User', 'Password', 'Host', 'Port']) {
 				if (data_parts[0] === data_point) {
-					if (!servers[parts[index - 1]]) {
-						servers[parts[index - 1]] = {};
+
+					// initialize server path in result object
+					if (!servers[config_path_parts[index - 1]]) {
+						servers[config_path_parts[index - 1]] = {};
 					}
-					if(data_point === 'Password'){
-						servers[parts[index - 1]][data_point] = heidiDecode(data_parts[2])
-					} else {
-						servers[parts[index - 1]][data_point] = data_parts[2]
+
+					// decode password
+					if (data_point === 'Password') {
+						servers[config_path_parts[index - 1]][data_point] = heidiDecode(data_parts[2])
+						continue;
 					}
+
+					// just write data
+					servers[config_path_parts[index - 1]][data_point] = data_parts[2]
+
 				}
 
 			}
